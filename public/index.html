@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Sort & Compare</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>JSON Sort & Compare</h1>
+            <p class="subtitle">Upload two JSON files to sort and compare them</p>
+        </header>
+
+        <main>
+            <section class="input-toggle">
+                <button class="toggle-btn active" id="toggleFile">Upload Files</button>
+                <button class="toggle-btn" id="toggleRaw">Paste JSON</button>
+            </section>
+
+            <section class="upload-section" id="fileSection">
+                <div class="upload-card" id="dropzone1">
+                    <div class="upload-icon">1</div>
+                    <h3>First JSON File</h3>
+                    <input type="file" id="file1" accept=".json" />
+                    <label for="file1" class="upload-btn">Choose File</label>
+                    <span class="file-name" id="fileName1">No file selected</span>
+                </div>
+
+                <div class="upload-card" id="dropzone2">
+                    <div class="upload-icon">2</div>
+                    <h3>Second JSON File</h3>
+                    <input type="file" id="file2" accept=".json" />
+                    <label for="file2" class="upload-btn">Choose File</label>
+                    <span class="file-name" id="fileName2">No file selected</span>
+                </div>
+            </section>
+
+            <section class="raw-section hidden" id="rawSection">
+                <div class="raw-card">
+                    <h3>First JSON</h3>
+                    <textarea id="rawJson1" placeholder="Paste your first JSON here..."></textarea>
+                </div>
+
+                <div class="raw-card">
+                    <h3>Second JSON</h3>
+                    <textarea id="rawJson2" placeholder="Paste your second JSON here..."></textarea>
+                </div>
+            </section>
+
+            <section class="actions">
+                <button id="compareBtn" class="btn btn-primary">Sort & Compare</button>
+                <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            </section>
+
+            <section class="stats" id="stats"></section>
+
+            <section class="legend" id="legend">
+                <div class="legend-item">
+                    <span class="legend-dot added"></span>
+                    <span>Only in File 2</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot removed"></span>
+                    <span>Only in File 1</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot modified"></span>
+                    <span>Modified</span>
+                </div>
+            </section>
+
+            <section class="results" id="results">
+                <div class="result-panel" id="panel1">
+                    <div class="panel-header">File 1 (Sorted)</div>
+                    <pre class="json-output" id="output1"></pre>
+                </div>
+
+                <div class="result-panel diff-panel" id="panelDiff">
+                    <div class="panel-header">Differences</div>
+                    <div class="diff-output" id="outputDiff"></div>
+                </div>
+
+                <div class="result-panel" id="panel2">
+                    <div class="panel-header">File 2 (Sorted)</div>
+                    <pre class="json-output" id="output2"></pre>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
