@@ -2,6 +2,7 @@
 let json1 = null;
 let json2 = null;
 let inputMode = 'file'; // 'file' or 'raw'
+let compareMode = 'standard'; // 'standard' or 'ecs'
 
 // DOM Elements
 const file1Input = document.getElementById('file1');
@@ -32,6 +33,25 @@ compareBtn.addEventListener('click', compare);
 clearBtn.addEventListener('click', clearAll);
 toggleFile.addEventListener('click', () => setInputMode('file'));
 toggleRaw.addEventListener('click', () => setInputMode('raw'));
+
+// Compare mode toggle (if elements exist)
+const toggleStandard = document.getElementById('toggleStandard');
+const toggleEcs = document.getElementById('toggleEcs');
+if (toggleStandard && toggleEcs) {
+    toggleStandard.addEventListener('click', () => setCompareMode('standard'));
+    toggleEcs.addEventListener('click', () => setCompareMode('ecs'));
+}
+
+function setCompareMode(mode) {
+    compareMode = mode;
+    if (mode === 'standard') {
+        toggleStandard.classList.add('active');
+        toggleEcs.classList.remove('active');
+    } else {
+        toggleEcs.classList.add('active');
+        toggleStandard.classList.remove('active');
+    }
+}
 
 // Input mode toggle
 function setInputMode(mode) {
@@ -172,6 +192,167 @@ function compareObjects(obj1, obj2, path = '') {
     return diff;
 }
 
+// Extract container definition from various ECS JSON formats
+// Finds the "main" container by looking for the one with the most secrets/environment vars
+function extractContainerDef(data) {
+    // Handle if it's already a container definition
+    if (data.name && (data.secrets || data.environment)) {
+        return data;
+    }
+
+    let containers = [];
+
+    // Handle array format (just containerDefinitions array)
+    if (Array.isArray(data)) {
+        containers = data;
+    }
+    // Handle full task definition format
+    else if (data.containerDefinitions && Array.isArray(data.containerDefinitions)) {
+        containers = data.containerDefinitions;
+    }
+
+    if (containers.length === 0) {
+        return data;
+    }
+
+    if (containers.length === 1) {
+        return containers[0];
+    }
+
+    // Find the main container (one with most secrets + environment vars)
+    // This filters out sidecars like envoy, xray-daemon, etc.
+    let mainContainer = containers[0];
+    let maxCount = 0;
+
+    for (const container of containers) {
+        const secretsCount = Array.isArray(container.secrets) ? container.secrets.length : 0;
+        const envCount = Array.isArray(container.environment) ? container.environment.length : 0;
+        const total = secretsCount + envCount;
+
+        if (total > maxCount) {
+            maxCount = total;
+            mainContainer = container;
+        }
+    }
+
+    return mainContainer;
+}
+
+// Convert array of {name, value/valueFrom} to object keyed by name
+function arrayToNamedObject(arr) {
+    if (!Array.isArray(arr)) return {};
+    const obj = {};
+    for (const item of arr) {
+        if (item.name) {
+            obj[item.name] = item.value || item.valueFrom || '';
+        }
+    }
+    return obj;
+}
+
+// Compare ECS task definitions
+function compareEcs(data1, data2) {
+    const container1 = extractContainerDef(data1);
+    const container2 = extractContainerDef(data2);
+
+    const result = {
+        image: { file1: container1.image || '', file2: container2.image || '' },
+        environment: { added: [], removed: [], modified: [], same: [] },
+        secrets: { added: [], removed: [], modified: [], same: [] }
+    };
+
+    // Compare environment variables
+    const env1 = arrayToNamedObject(container1.environment);
+    const env2 = arrayToNamedObject(container2.environment);
+    const envDiff = compareNamedArrays(env1, env2);
+    result.environment = envDiff;
+
+    // Compare secrets
+    const secrets1 = arrayToNamedObject(container1.secrets);
+    const secrets2 = arrayToNamedObject(container2.secrets);
+    const secretsDiff = compareNamedArrays(secrets1, secrets2);
+    result.secrets = secretsDiff;
+
+    return result;
+}
+
+// Extract just the first JSON object/array from text (ignores trailing content)
+// Also wraps partial container definition snippets (starting with "environment" or "secrets")
+function extractFirstJson(text) {
+    if (!text) return text;
+
+    // Check if it starts with a property name (partial container def)
+    const trimmed = text.trim();
+    if (trimmed.startsWith('"environment"') || trimmed.startsWith('"secrets"') || trimmed.startsWith('"name"') || trimmed.startsWith('"image"')) {
+        // Wrap it in braces to make it valid JSON
+        text = '{' + trimmed + '}';
+    }
+
+    const start = text.search(/[\[{]/);
+    if (start === -1) return text;
+
+    const openChar = text[start];
+    const closeChar = openChar === '{' ? '}' : ']';
+
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+
+    for (let i = start; i < text.length; i++) {
+        const char = text[i];
+
+        if (escape) {
+            escape = false;
+            continue;
+        }
+
+        if (char === '\\' && inString) {
+            escape = true;
+            continue;
+        }
+
+        if (char === '"') {
+            inString = !inString;
+            continue;
+        }
+
+        if (inString) continue;
+
+        if (char === openChar || char === (openChar === '{' ? '[' : '{')) {
+            depth++;
+        } else if (char === closeChar || char === (closeChar === '}' ? ']' : '}')) {
+            depth--;
+            if (depth === 0) {
+                return text.substring(start, i + 1);
+            }
+        }
+    }
+
+    return text;
+}
+
+function compareNamedArrays(obj1, obj2) {
+    const diff = { added: [], removed: [], modified: [], same: [] };
+
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+    const allKeys = [...new Set([...keys1, ...keys2])].sort();
+
+    for (const key of allKeys) {
+        if (!(key in obj1)) {
+            diff.added.push({ name: key, value: obj2[key] });
+        } else if (!(key in obj2)) {
+            diff.removed.push({ name: key, value: obj1[key] });
+        } else if (obj1[key] !== obj2[key]) {
+            diff.modified.push({ name: key, oldValue: obj1[key], newValue: obj2[key] });
+        } else {
+            diff.same.push({ name: key, value: obj1[key] });
+        }
+    }
+
+    return diff;
+}
+
 function compare() {
     let data1, data2;
 
@@ -183,8 +364,8 @@ function compare() {
         data1 = json1;
         data2 = json2;
     } else {
-        const raw1 = rawJson1.value.trim();
-        const raw2 = rawJson2.value.trim();
+        const raw1 = extractFirstJson(rawJson1.value.trim());
+        const raw2 = extractFirstJson(rawJson2.value.trim());
 
         if (!raw1 || !raw2) {
             alert('Please paste JSON in both text areas.');
@@ -206,15 +387,149 @@ function compare() {
         }
     }
 
-    const sorted1 = sortObject(data1);
-    const sorted2 = sortObject(data2);
-    const diff = compareObjects(sorted1, sorted2);
+    if (compareMode === 'ecs') {
+        const ecsDiff = compareEcs(data1, data2);
+        displayEcsStats(ecsDiff);
+        displayEcsResults(data1, data2, ecsDiff);
+    } else {
+        const sorted1 = sortObject(data1);
+        const sorted2 = sortObject(data2);
+        const diff = compareObjects(sorted1, sorted2);
 
-    displayStats(diff);
-    displayResults(sorted1, sorted2, diff);
+        displayStats(diff);
+        displayResults(sorted1, sorted2, diff);
+    }
 
     legend.classList.add('visible');
     results.classList.add('visible');
+}
+
+function displayEcsStats(ecsDiff) {
+    const envTotal = ecsDiff.environment.added.length + ecsDiff.environment.removed.length + ecsDiff.environment.modified.length;
+    const secretsTotal = ecsDiff.secrets.added.length + ecsDiff.secrets.removed.length + ecsDiff.secrets.modified.length;
+    const imageChanged = ecsDiff.image.file1 !== ecsDiff.image.file2;
+
+    stats.innerHTML = `
+        <div class="stat-item ${imageChanged ? 'modified' : 'unchanged'}">
+            <span>Image:</span>
+            <span class="count">${imageChanged ? 'Changed' : 'Same'}</span>
+        </div>
+        <div class="stat-item ${envTotal > 0 ? 'modified' : 'unchanged'}">
+            <span>Env Vars:</span>
+            <span class="count">${envTotal} diff</span>
+        </div>
+        <div class="stat-item ${secretsTotal > 0 ? 'modified' : 'unchanged'}">
+            <span>Secrets:</span>
+            <span class="count">${secretsTotal} diff</span>
+        </div>
+    `;
+}
+
+function displayEcsResults(data1, data2, ecsDiff) {
+    const container1 = extractContainerDef(data1);
+    const container2 = extractContainerDef(data2);
+
+    // Only show relevant fields for ECS comparison
+    const relevantFields1 = extractRelevantEcsFields(container1);
+    const relevantFields2 = extractRelevantEcsFields(container2);
+
+    output1.innerHTML = syntaxHighlight(JSON.stringify(sortObject(relevantFields1), null, 2));
+    output2.innerHTML = syntaxHighlight(JSON.stringify(sortObject(relevantFields2), null, 2));
+    outputDiff.innerHTML = formatEcsDiff(ecsDiff);
+}
+
+// Extract only the fields relevant for ECS comparison
+function extractRelevantEcsFields(container) {
+    return {
+        name: container.name || '',
+        image: container.image || '',
+        environment: container.environment || [],
+        secrets: container.secrets || []
+    };
+}
+
+function formatEcsDiff(ecsDiff) {
+    let html = '';
+
+    // Image comparison
+    const img1 = ecsDiff.image.file1;
+    const img2 = ecsDiff.image.file2;
+    const tag1 = img1.split(':')[1] || 'latest';
+    const tag2 = img2.split(':')[1] || 'latest';
+
+    html += `<div class="diff-section">
+        <div class="diff-section-title" style="color: #3498db;">Image Tag</div>`;
+
+    if (img1 === img2) {
+        html += `<div class="diff-item" style="background: #e9ecef;">
+            <div class="diff-key">Same</div>
+            <div class="diff-value">${escapeHtml(tag1)}</div>
+        </div>`;
+    } else {
+        html += `<div class="diff-item modified">
+            <div class="diff-key">Changed</div>
+            <div class="diff-value old">File 1: ${escapeHtml(tag1)}</div>
+            <div class="diff-value new">File 2: ${escapeHtml(tag2)}</div>
+        </div>`;
+    }
+    html += '</div>';
+
+    // Environment variables
+    html += formatEcsSection('Environment Variables', ecsDiff.environment);
+
+    // Secrets
+    html += formatEcsSection('Secrets', ecsDiff.secrets);
+
+    return html;
+}
+
+function formatEcsSection(title, diff) {
+    let html = `<div class="diff-section">
+        <div class="diff-section-title" style="color: #3498db;">${title}</div>`;
+
+    if (diff.removed.length === 0 && diff.added.length === 0 && diff.modified.length === 0) {
+        html += `<div class="diff-item" style="background: #e9ecef; color: #6c757d;">
+            <div class="diff-key">No differences</div>
+        </div>`;
+    }
+
+    if (diff.removed.length > 0) {
+        html += `<div class="diff-subsection">
+            <div class="diff-section-title removed" style="font-size: 0.7rem;">Missing in File 2 (${diff.removed.length})</div>
+            ${diff.removed.map(item => `
+                <div class="diff-item removed">
+                    <div class="diff-key">${escapeHtml(item.name)}</div>
+                </div>
+            `).join('')}
+        </div>`;
+    }
+
+    if (diff.added.length > 0) {
+        html += `<div class="diff-subsection">
+            <div class="diff-section-title added" style="font-size: 0.7rem;">Missing in File 1 (${diff.added.length})</div>
+            ${diff.added.map(item => `
+                <div class="diff-item added">
+                    <div class="diff-key">${escapeHtml(item.name)}</div>
+                </div>
+            `).join('')}
+        </div>`;
+    }
+
+    if (diff.modified.length > 0) {
+        html += `<div class="diff-subsection">
+            <div class="diff-section-title modified" style="font-size: 0.7rem;">Modified (${diff.modified.length})</div>
+            ${diff.modified.map(item => `
+                <div class="diff-item modified">
+                    <div class="diff-key">${escapeHtml(item.name)}</div>
+                    <div class="diff-value old">Old: ${escapeHtml(truncateValue(item.oldValue))}</div>
+                    <div class="diff-value new">New: ${escapeHtml(truncateValue(item.newValue))}</div>
+                </div>
+            `).join('')}
+        </div>`;
+    }
+
+    html += '</div>';
+    return html;
 }
 
 function displayStats(diff) {

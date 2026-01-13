@@ -449,6 +449,12 @@ header h1 {
     color: #27ae60;
 }
 
+.diff-subsection {
+    margin: 12px 0;
+    padding-left: 8px;
+    border-left: 2px solid #dde1e6;
+}
+
 /* JSON syntax highlighting */
 .json-key {
     color: #e74c3c;
