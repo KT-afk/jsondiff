@@ -2,7 +2,7 @@
 let json1 = null;
 let json2 = null;
 let inputMode = 'file'; // 'file' or 'raw'
-let compareMode = 'standard'; // 'standard' or 'ecs'
+let compareMode = 'standard'; // 'standard', 'ecs', or 'secretsGen'
 
 // DOM Elements
 const file1Input = document.getElementById('file1');
@@ -25,6 +25,9 @@ const fileSection = document.getElementById('fileSection');
 const rawSection = document.getElementById('rawSection');
 const rawJson1 = document.getElementById('rawJson1');
 const rawJson2 = document.getElementById('rawJson2');
+const secretsGenSection = document.getElementById('secretsGenSection');
+const secretArn = document.getElementById('secretArn');
+const secretsManagerJson = document.getElementById('secretsManagerJson');
 
 // Event Listeners
 file1Input.addEventListener('change', (e) => handleFileSelect(e, 1));
@@ -37,20 +40,54 @@ toggleRaw.addEventListener('click', () => setInputMode('raw'));
 // Compare mode toggle (if elements exist)
 const toggleStandard = document.getElementById('toggleStandard');
 const toggleEcs = document.getElementById('toggleEcs');
+const toggleSecretsGen = document.getElementById('toggleSecretsGen');
 if (toggleStandard && toggleEcs) {
     toggleStandard.addEventListener('click', () => setCompareMode('standard'));
     toggleEcs.addEventListener('click', () => setCompareMode('ecs'));
 }
+if (toggleSecretsGen) {
+    toggleSecretsGen.addEventListener('click', () => setCompareMode('secretsGen'));
+}
 
 function setCompareMode(mode) {
     compareMode = mode;
+    toggleStandard.classList.remove('active');
+    toggleEcs.classList.remove('active');
+    toggleSecretsGen.classList.remove('active');
+
     if (mode === 'standard') {
         toggleStandard.classList.add('active');
-        toggleEcs.classList.remove('active');
-    } else {
+        showCompareInputs();
+    } else if (mode === 'ecs') {
         toggleEcs.classList.add('active');
-        toggleStandard.classList.remove('active');
+        showCompareInputs();
+    } else if (mode === 'secretsGen') {
+        toggleSecretsGen.classList.add('active');
+        showSecretsGenInputs();
     }
+}
+
+function showCompareInputs() {
+    // Show file/raw toggle and inputs
+    document.querySelector('.input-toggle').style.display = 'flex';
+    secretsGenSection.classList.add('hidden');
+    if (inputMode === 'file') {
+        fileSection.style.display = 'flex';
+        rawSection.classList.add('hidden');
+    } else {
+        fileSection.style.display = 'none';
+        rawSection.classList.remove('hidden');
+    }
+    compareBtn.textContent = 'Sort & Compare';
+}
+
+function showSecretsGenInputs() {
+    // Hide file/raw toggle and show secrets gen inputs
+    document.querySelector('.input-toggle').style.display = 'flex';
+    fileSection.style.display = 'none';
+    rawSection.classList.add('hidden');
+    secretsGenSection.classList.remove('hidden');
+    compareBtn.textContent = 'Generate Secrets';
 }
 
 // Input mode toggle
@@ -354,6 +391,12 @@ function compareNamedArrays(obj1, obj2) {
 }
 
 function compare() {
+    // Handle secrets generator mode separately
+    if (compareMode === 'secretsGen') {
+        generateSecrets();
+        return;
+    }
+
     let data1, data2;
 
     if (inputMode === 'file') {
@@ -404,6 +447,115 @@ function compare() {
     results.classList.add('visible');
 }
 
+// Format ECS secrets array with proper indentation (matching AWS console format)
+function formatEcsSecretsArray(secrets) {
+    const lines = secrets.map(secret => {
+        return `                {
+                    "name": "${secret.name}",
+                    "valueFrom": "${secret.valueFrom}"
+                }`;
+    });
+    return lines.join(',\n');
+}
+
+// Generate ECS task definition secrets from Secrets Manager JSON
+function generateSecrets() {
+    const arn = secretArn.value.trim();
+    const jsonInput = secretsManagerJson.value.trim();
+
+    if (!arn) {
+        alert('Please enter the Secret ARN.');
+        return;
+    }
+
+    if (!jsonInput) {
+        alert('Please paste the Secrets Manager JSON.');
+        return;
+    }
+
+    let secretsData;
+    try {
+        secretsData = JSON.parse(jsonInput);
+    } catch (err) {
+        alert(`Error parsing JSON: ${err.message}`);
+        return;
+    }
+
+    // Generate ECS secrets array
+    const ecsSecrets = Object.keys(secretsData).sort().map(key => ({
+        name: key,
+        valueFrom: `${arn}:${key}::`
+    }));
+
+    // Format with ECS-style indentation
+    const formattedOutput = formatEcsSecretsArray(ecsSecrets);
+
+    // Display results
+    stats.innerHTML = `
+        <div class="stat-item added">
+            <span>Secrets Generated:</span>
+            <span class="count">${ecsSecrets.length}</span>
+        </div>
+    `;
+
+    // Show input in panel 1, output in panel 2, hide diff panel
+    output1.innerHTML = syntaxHighlight(JSON.stringify(secretsData, null, 2));
+    output2.innerHTML = syntaxHighlight(formattedOutput);
+    outputDiff.innerHTML = `
+        <div style="text-align: center; padding: 20px; color: #7f8c8d;">
+            <p style="margin-bottom: 12px;">Copy the generated secrets array to your ECS task definition.</p>
+            <button class="btn btn-primary" onclick="copyToClipboard()" style="padding: 8px 16px; font-size: 0.813rem;">Copy to Clipboard</button>
+        </div>
+    `;
+
+    // Update panel headers
+    document.querySelector('#panel1 .panel-header').textContent = 'Input (Secrets Manager)';
+    document.querySelector('#panel2 .panel-header').textContent = 'Output (ECS Task Def Secrets)';
+    document.querySelector('#panelDiff .panel-header').textContent = 'Actions';
+
+    legend.classList.remove('visible');
+    results.classList.add('visible');
+}
+
+// Copy ECS output to clipboard
+function copyEcsOutput(panelNum) {
+    const content = panelNum === 1 ? window.ecsOutput1 : window.ecsOutput2;
+    if (!content) {
+        alert('No content to copy');
+        return;
+    }
+    navigator.clipboard.writeText(content).then(() => {
+        alert('Copied to clipboard!');
+    }).catch(err => {
+        alert('Failed to copy: ' + err);
+    });
+}
+
+// Copy generated secrets to clipboard
+function copyToClipboard() {
+    const arn = secretArn.value.trim();
+    const jsonInput = secretsManagerJson.value.trim();
+
+    try {
+        const secretsData = JSON.parse(jsonInput);
+        const ecsSecrets = Object.keys(secretsData).sort().map(key => ({
+            name: key,
+            valueFrom: `${arn}:${key}::`
+        }));
+
+        // Use ECS-style formatting
+        const formattedOutput = formatEcsSecretsArray(ecsSecrets);
+
+        navigator.clipboard.writeText(formattedOutput).then(() => {
+            alert('Copied to clipboard!');
+        }).catch(err => {
+            alert('Failed to copy: ' + err);
+        });
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+}
+
 function displayEcsStats(ecsDiff) {
     const envTotal = ecsDiff.environment.added.length + ecsDiff.environment.removed.length + ecsDiff.environment.modified.length;
     const secretsTotal = ecsDiff.secrets.added.length + ecsDiff.secrets.removed.length + ecsDiff.secrets.modified.length;
@@ -433,9 +585,44 @@ function displayEcsResults(data1, data2, ecsDiff) {
     const relevantFields1 = extractRelevantEcsFields(container1);
     const relevantFields2 = extractRelevantEcsFields(container2);
 
-    output1.innerHTML = syntaxHighlight(JSON.stringify(sortObject(relevantFields1), null, 2));
-    output2.innerHTML = syntaxHighlight(JSON.stringify(sortObject(relevantFields2), null, 2));
+    // Format as array with specific key order: name, image, environment, secrets
+    const formatted1 = formatEcsContainerArray(relevantFields1);
+    const formatted2 = formatEcsContainerArray(relevantFields2);
+
+    // Store formatted output for copy functionality
+    window.ecsOutput1 = formatted1;
+    window.ecsOutput2 = formatted2;
+
+    output1.innerHTML = syntaxHighlight(formatted1);
+    output2.innerHTML = syntaxHighlight(formatted2);
     outputDiff.innerHTML = formatEcsDiff(ecsDiff);
+
+    // Update panel headers with copy buttons
+    document.querySelector('#panel1 .panel-header').innerHTML = 'File 1 (Sorted) <button class="copy-btn" onclick="copyEcsOutput(1)">Copy</button>';
+    document.querySelector('#panel2 .panel-header').innerHTML = 'File 2 (Sorted) <button class="copy-btn" onclick="copyEcsOutput(2)">Copy</button>';
+}
+
+// Format container as array with specific key order: name, image, environment, secrets
+function formatEcsContainerArray(container) {
+    // Sort environment and secrets arrays by name
+    const sortedEnv = (container.environment || []).slice().sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '')
+    );
+    const sortedSecrets = (container.secrets || []).slice().sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '')
+    );
+
+    // Build the output manually to preserve key order
+    const formatted = [
+        {
+            name: container.name || '',
+            image: container.image || '',
+            environment: sortedEnv,
+            secrets: sortedSecrets
+        }
+    ];
+
+    return JSON.stringify(formatted, null, 2);
 }
 
 // Extract only the fields relevant for ECS comparison
@@ -662,10 +849,19 @@ function clearAll() {
     rawJson1.value = '';
     rawJson2.value = '';
 
+    // Clear secrets generator fields
+    if (secretArn) secretArn.value = '';
+    if (secretsManagerJson) secretsManagerJson.value = '';
+
     stats.innerHTML = '';
     output1.innerHTML = '';
     output2.innerHTML = '';
     outputDiff.innerHTML = '';
+
+    // Reset panel headers
+    document.querySelector('#panel1 .panel-header').textContent = 'File 1 (Sorted)';
+    document.querySelector('#panel2 .panel-header').textContent = 'File 2 (Sorted)';
+    document.querySelector('#panelDiff .panel-header').textContent = 'Differences';
 
     legend.classList.remove('visible');
     results.classList.remove('visible');
