@@ -166,11 +166,19 @@ The tool accepts multiple ECS JSON formats:
 
 ### Secrets Generator
 
+> **Note:** This mode is for **generating** ECS secrets from AWS Secrets Manager JSON, not for comparing secrets. Use **ECS Task Def** mode if you want to compare secrets between two task definitions.
+
+**What it does:** Converts simple key-value JSON (as stored in AWS Secrets Manager) into the ECS task definition `secrets` array format with proper ARN references.
+
+**When to use:** When you've created a secret in AWS Secrets Manager and need to reference its keys in your ECS task definition.
+
+#### Steps
+
 1. Select **Secrets Generator** mode
 2. Enter the AWS Secret ARN (e.g., `arn:aws:secretsmanager:ap-southeast-1:123456789:secret:my-secret-AbCdEf`)
-3. Paste the Secrets Manager JSON (key-value pairs)
+3. Paste the Secrets Manager JSON (the key-value pairs stored in your secret)
 4. Click **Generate Secrets**
-5. Copy the output to your ECS task definition
+5. Copy the output to your ECS task definition's `secrets` array
 
 #### Example - Secrets Generator
 
@@ -179,7 +187,7 @@ The tool accepts multiple ECS JSON formats:
 arn:aws:secretsmanager:ap-southeast-1:123456789:secret:my-app-secrets-AbCdEf
 ```
 
-**Input JSON (from Secrets Manager):**
+**Input JSON (key-value pairs from Secrets Manager):**
 ```json
 {
   "DB_HOST": "mydb.cluster.rds.amazonaws.com",
@@ -189,7 +197,7 @@ arn:aws:secretsmanager:ap-southeast-1:123456789:secret:my-app-secrets-AbCdEf
 }
 ```
 
-**Generated Output:**
+**Generated Output (ECS task definition format):**
 ```json
                 {
                     "name": "API_KEY",

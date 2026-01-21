@@ -237,6 +237,28 @@ function extractContainerDef(data) {
         return data;
     }
 
+    // Handle if it's just secrets or environment (without name)
+    if (data.secrets || data.environment) {
+        return {
+            name: '',
+            image: '',
+            secrets: data.secrets || [],
+            environment: data.environment || []
+        };
+    }
+
+    // Handle if it's a raw secrets/environment array (array of {name, value/valueFrom})
+    if (Array.isArray(data) && data.length > 0 && data[0].name && (data[0].value !== undefined || data[0].valueFrom !== undefined)) {
+        // Determine if it's secrets (has valueFrom) or environment (has value)
+        const isSecrets = data[0].valueFrom !== undefined;
+        return {
+            name: '',
+            image: '',
+            secrets: isSecrets ? data : [],
+            environment: isSecrets ? [] : data
+        };
+    }
+
     let containers = [];
 
     // Handle array format (just containerDefinitions array)

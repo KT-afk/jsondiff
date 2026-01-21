@@ -180,6 +180,13 @@ header h1 {
     display: none;
 }
 
+.section-description {
+    color: #7f8c8d;
+    font-size: 0.875rem;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
 .secret-arn-input {
     width: 100%;
     padding: 12px;

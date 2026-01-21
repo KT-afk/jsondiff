@@ -76,13 +76,15 @@
             </section>
 
             <section class="secrets-gen-section hidden" id="secretsGenSection">
+                <p class="section-description">Convert AWS Secrets Manager key-value pairs into ECS task definition secrets format</p>
                 <div class="raw-card" style="width: 500px;">
                     <h3>Secret ARN</h3>
                     <input type="text" id="secretArn" class="secret-arn-input" placeholder="arn:aws:secretsmanager:region:account:secret:name-xxxxx">
                 </div>
                 <div class="raw-card" style="width: 500px;">
-                    <h3>Secrets Manager JSON (key-value pairs)</h3>
-                    <textarea id="secretsManagerJson" placeholder='{"DB_HOST": "localhost", "DB_USER": "admin", ...}'></textarea>
+                    <h3>Secrets Manager JSON</h3>
+                    <textarea id="secretsManagerJson" placeholder='Paste the key-value JSON from AWS Secrets Manager:
+{"DB_HOST": "localhost", "DB_USER": "admin", "DB_PASS": "secret"}'></textarea>
                 </div>
             </section>
 
