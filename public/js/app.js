@@ -55,15 +55,20 @@ function setCompareMode(mode) {
     toggleEcs.classList.remove('active');
     toggleSecretsGen.classList.remove('active');
 
+    const modeDescription = document.getElementById('modeDescription');
+
     if (mode === 'standard') {
         toggleStandard.classList.add('active');
         showCompareInputs();
+        if (modeDescription) modeDescription.textContent = 'Compare any two JSON objects and see differences';
     } else if (mode === 'ecs') {
         toggleEcs.classList.add('active');
         showCompareInputs();
+        if (modeDescription) modeDescription.textContent = 'Compare ECS task definitions: image, environment variables, and secrets';
     } else if (mode === 'secretsGen') {
         toggleSecretsGen.classList.add('active');
         showSecretsGenInputs();
+        if (modeDescription) modeDescription.textContent = 'Generate ECS secrets array from Secrets Manager JSON (no comparison)';
     }
 }
 
@@ -335,59 +340,76 @@ function compareEcs(data1, data2) {
     return result;
 }
 
+// Extract all JSON objects/arrays from text
+// Returns an array of JSON strings found in the text
+function extractAllJsons(text) {
+    if (!text) return [];
+
+    const results = [];
+    let remaining = text.trim();
+
+    // Check if it starts with a property name (partial container def)
+    if (remaining.startsWith('"environment"') || remaining.startsWith('"secrets"') || remaining.startsWith('"name"') || remaining.startsWith('"image"')) {
+        remaining = '{' + remaining + '}';
+    }
+
+    while (remaining.length > 0) {
+        const start = remaining.search(/[\[{]/);
+        if (start === -1) break;
+
+        const openChar = remaining[start];
+        const closeChar = openChar === '{' ? '}' : ']';
+
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+        let endIndex = -1;
+
+        for (let i = start; i < remaining.length; i++) {
+            const char = remaining[i];
+
+            if (escape) {
+                escape = false;
+                continue;
+            }
+
+            if (char === '\\' && inString) {
+                escape = true;
+                continue;
+            }
+
+            if (char === '"') {
+                inString = !inString;
+                continue;
+            }
+
+            if (inString) continue;
+
+            if (char === '{' || char === '[') {
+                depth++;
+            } else if (char === '}' || char === ']') {
+                depth--;
+                if (depth === 0) {
+                    endIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if (endIndex === -1) break;
+
+        results.push(remaining.substring(start, endIndex + 1));
+        remaining = remaining.substring(endIndex + 1).trim();
+    }
+
+    return results;
+}
+
 // Extract just the first JSON object/array from text (ignores trailing content)
 // Also wraps partial container definition snippets (starting with "environment" or "secrets")
 function extractFirstJson(text) {
-    if (!text) return text;
-
-    // Check if it starts with a property name (partial container def)
-    const trimmed = text.trim();
-    if (trimmed.startsWith('"environment"') || trimmed.startsWith('"secrets"') || trimmed.startsWith('"name"') || trimmed.startsWith('"image"')) {
-        // Wrap it in braces to make it valid JSON
-        text = '{' + trimmed + '}';
-    }
-
-    const start = text.search(/[\[{]/);
-    if (start === -1) return text;
-
-    const openChar = text[start];
-    const closeChar = openChar === '{' ? '}' : ']';
-
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-
-    for (let i = start; i < text.length; i++) {
-        const char = text[i];
-
-        if (escape) {
-            escape = false;
-            continue;
-        }
-
-        if (char === '\\' && inString) {
-            escape = true;
-            continue;
-        }
-
-        if (char === '"') {
-            inString = !inString;
-            continue;
-        }
-
-        if (inString) continue;
-
-        if (char === openChar || char === (openChar === '{' ? '[' : '{')) {
-            depth++;
-        } else if (char === closeChar || char === (closeChar === '}' ? ']' : '}')) {
-            depth--;
-            if (depth === 0) {
-                return text.substring(start, i + 1);
-            }
-        }
-    }
-
-    return text;
+    const jsons = extractAllJsons(text);
+    return jsons.length > 0 ? jsons[0] : text;
 }
 
 function compareNamedArrays(obj1, obj2) {
@@ -429,11 +451,25 @@ function compare() {
         data1 = json1;
         data2 = json2;
     } else {
-        const raw1 = extractFirstJson(rawJson1.value.trim());
-        const raw2 = extractFirstJson(rawJson2.value.trim());
+        let raw1, raw2;
+
+        // Check if user pasted both JSONs in the first textarea
+        const firstTextareaJsons = extractAllJsons(rawJson1.value.trim());
+        const secondTextareaValue = rawJson2.value.trim();
+
+        if (firstTextareaJsons.length >= 2 && !secondTextareaValue) {
+            // Auto-split: two JSONs were pasted in the first textarea
+            raw1 = firstTextareaJsons[0];
+            raw2 = firstTextareaJsons[1];
+            // Optionally populate the second textarea for clarity
+            rawJson2.value = raw2;
+        } else {
+            raw1 = extractFirstJson(rawJson1.value.trim());
+            raw2 = extractFirstJson(secondTextareaValue);
+        }
 
         if (!raw1 || !raw2) {
-            alert('Please paste JSON in both text areas.');
+            alert('Please paste JSON in both text areas, or paste two JSON objects in the first area.');
             return;
         }
 

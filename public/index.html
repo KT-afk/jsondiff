@@ -40,10 +40,11 @@
             </section>
 
             <section class="input-toggle" style="margin-top: -10px;">
-                <button class="toggle-btn active" id="toggleStandard">Standard</button>
-                <button class="toggle-btn" id="toggleEcs">ECS Task Def</button>
-                <button class="toggle-btn" id="toggleSecretsGen">Secrets Generator</button>
+                <button class="toggle-btn active" id="toggleStandard" title="Compare any two JSON files">Standard</button>
+                <button class="toggle-btn" id="toggleEcs" title="Compare ECS task definition secrets & environment variables">ECS Task Def</button>
+                <button class="toggle-btn" id="toggleSecretsGen" title="Generate ECS secrets array from Secrets Manager JSON (no comparison)">Secrets Generator</button>
             </section>
+            <p class="mode-description" id="modeDescription">Compare any two JSON objects and see differences</p>
 
             <section class="upload-section" id="fileSection">
                 <div class="upload-card" id="dropzone1">
@@ -64,14 +65,22 @@
             </section>
 
             <section class="raw-section hidden" id="rawSection">
+                <p class="section-description">Paste one JSON per box, or paste both JSONs in the first box (they'll be auto-split)</p>
                 <div class="raw-card">
-                    <h3>First JSON</h3>
-                    <textarea id="rawJson1" placeholder="Paste your first JSON here..."></textarea>
+                    <h3>First JSON (or both)</h3>
+                    <textarea id="rawJson1" placeholder="Paste your first JSON here...
+
+Or paste BOTH JSONs here and they'll be auto-split:
+{...first JSON...}
+
+{...second JSON...}"></textarea>
                 </div>
 
                 <div class="raw-card">
                     <h3>Second JSON</h3>
-                    <textarea id="rawJson2" placeholder="Paste your second JSON here..."></textarea>
+                    <textarea id="rawJson2" placeholder="Paste your second JSON here...
+
+(Leave empty if you pasted both JSONs in the first box)"></textarea>
                 </div>
             </section>
 

@@ -187,6 +187,15 @@ header h1 {
     margin-bottom: 8px;
 }
 
+.mode-description {
+    color: #7f8c8d;
+    font-size: 0.813rem;
+    text-align: center;
+    margin-top: 8px;
+    margin-bottom: 16px;
+    font-style: italic;
+}
+
 .secret-arn-input {
     width: 100%;
     padding: 12px;
