@@ -47,56 +47,19 @@
             <p class="mode-description" id="modeDescription">Compare any two JSON objects and see differences</p>
 
             <section class="upload-section" id="fileSection">
-                <div class="upload-card" id="dropzone1">
-                    <div class="upload-icon">1</div>
-                    <h3>First JSON File</h3>
-                    <input type="file" id="file1" accept=".json" />
-                    <label for="file1" class="upload-btn">Choose File</label>
-                    <span class="file-name" id="fileName1">No file selected</span>
-                </div>
-
-                <div class="upload-card" id="dropzone2">
-                    <div class="upload-icon">2</div>
-                    <h3>Second JSON File</h3>
-                    <input type="file" id="file2" accept=".json" />
-                    <label for="file2" class="upload-btn">Choose File</label>
-                    <span class="file-name" id="fileName2">No file selected</span>
-                </div>
+                <!-- Dynamically rendered by renderFileInputs() -->
             </section>
 
             <section class="raw-section hidden" id="rawSection">
-                <p class="section-description">Paste one JSON per box, or paste both JSONs in the first box (they'll be auto-split)</p>
-                <div class="raw-cards">
-                    <div class="raw-card">
-                        <h3>First JSON (or both)</h3>
-                        <textarea id="rawJson1" placeholder="Paste your first JSON here...
-
-Or paste BOTH JSONs here and they'll be auto-split:
-{...first JSON...}
-
-{...second JSON...}"></textarea>
-                    </div>
-
-                    <div class="raw-card">
-                        <h3>Second JSON</h3>
-                        <textarea id="rawJson2" placeholder="Paste your second JSON here...
-
-(Leave empty if you pasted both JSONs in the first box)"></textarea>
-                    </div>
-                </div>
+                <!-- Dynamically rendered by renderRawInputs() -->
             </section>
 
             <section class="secrets-gen-section hidden" id="secretsGenSection">
-                <p class="section-description">Convert AWS Secrets Manager key-value pairs into ECS task definition secrets format</p>
-                <div class="raw-card" style="width: 500px;">
-                    <h3>Secret ARN</h3>
-                    <input type="text" id="secretArn" class="secret-arn-input" placeholder="arn:aws:secretsmanager:region:account:secret:name-xxxxx">
-                </div>
-                <div class="raw-card" style="width: 500px;">
-                    <h3>Secrets Manager JSON</h3>
-                    <textarea id="secretsManagerJson" placeholder='Paste the key-value JSON from AWS Secrets Manager:
-{"DB_HOST": "localhost", "DB_USER": "admin", "DB_PASS": "secret"}'></textarea>
-                </div>
+                <!-- Dynamically rendered by renderSecretsInputs() -->
+            </section>
+
+            <section class="add-comparison-section">
+                <button id="addComparisonBtn" class="btn btn-add">+ Add Comparison</button>
             </section>
 
             <section class="actions">

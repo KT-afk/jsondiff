@@ -378,7 +378,7 @@ header h1 {
 }
 
 .results.visible {
-    display: grid;
+    display: block;
 }
 
 @media (max-width: 1100px) {
@@ -546,3 +546,112 @@ header h1 {
 .json-null {
     color: #95a5a6;
 }
+
+/* Add Comparison Button Section */
+.add-comparison-section {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+}
+
+.btn-add {
+    background: #3498db;
+    color: #fff;
+    border: 2px dashed #2980b9;
+    padding: 10px 24px;
+}
+
+.btn-add:hover {
+    background: #2980b9;
+    border-style: solid;
+}
+
+/* Comparison Group */
+.comparison-group {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+}
+
+.comparison-group:last-child {
+    margin-bottom: 0;
+}
+
+.comparison-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #dde1e6;
+}
+
+.comparison-label {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.938rem;
+}
+
+.remove-btn {
+    padding: 6px 14px;
+    font-size: 0.813rem;
+    font-weight: 500;
+    background: #e74c3c;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.remove-btn:hover {
+    background: #c0392b;
+}
+
+/* Upload Pair Layout */
+.upload-pair {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Results Grid for Multiple Comparisons */
+.comparison-result {
+    margin-bottom: 32px;
+}
+
+.comparison-result:last-child {
+    margin-bottom: 0;
+}
+
+.comparison-result.with-header {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #e9ecef;
+}
+
+.comparison-result-header {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #dde1e6;
+}
+
+.results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 1100px) {
+    .results-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
